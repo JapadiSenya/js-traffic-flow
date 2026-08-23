@@ -3,7 +3,14 @@ import { deserializeNetwork, serializeNetwork, deserializeConfig, downloadJson, 
 import { Simulation } from './engine/index.js';
 import { PlaybackControls } from './ui/index.js';
 import { TrajectoryRecorder, drawDiagram } from './diagram/index.js';
-import { NetworkEditorState, EditorInteraction, PropertyPanel, ConfigPanel, drawSelectionHighlight } from './editor/index.js';
+import {
+  NetworkEditorState,
+  EditorInteraction,
+  PropertyPanel,
+  ConfigPanel,
+  drawSelectionHighlight,
+  drawRouteHighlight,
+} from './editor/index.js';
 
 const SIMULATION_DT = 0.1; // シミュレーションの固定タイムステップ[s]
 const MAX_STEP_PER_FRAME = 0.5; // タブが非アクティブ後の巨大な経過時間を打ち切る上限[s]
@@ -35,7 +42,9 @@ const toolButtons = {
   'add-node': document.getElementById('tool-add-node-btn'),
   'add-edge': document.getElementById('tool-add-edge-btn'),
   delete: document.getElementById('tool-delete-btn'),
+  'select-route': document.getElementById('tool-select-route-btn'),
 };
+const routeClearButton = document.getElementById('route-clear-btn');
 const networkExportButton = document.getElementById('network-export-btn');
 const networkImportButton = document.getElementById('network-import-btn');
 const networkImportInput = document.getElementById('network-import-input');
@@ -68,6 +77,9 @@ const editorInteraction = new EditorInteraction({
     propertyPanel.render();
     render();
   },
+  onRouteChange: (routeLaneIds) => {
+    if (config) config.diagramRoute = routeLaneIds;
+  },
 });
 
 const configPanel = new ConfigPanel({
@@ -86,6 +98,9 @@ const configPanel = new ConfigPanel({
 configButton.addEventListener('click', () => configPanel.open());
 
 function setTool(tool) {
+  if (tool === 'select-route') {
+    editorInteraction.routeLaneIds = [...(config?.diagramRoute ?? [])];
+  }
   editorInteraction.setTool(tool);
   for (const [key, btn] of Object.entries(toolButtons)) {
     btn.classList.toggle('active', key === tool);
@@ -96,6 +111,10 @@ function setTool(tool) {
 for (const [tool, btn] of Object.entries(toolButtons)) {
   btn.addEventListener('click', () => setTool(tool));
 }
+
+routeClearButton.addEventListener('click', () => {
+  editorInteraction.clearRoute();
+});
 
 networkExportButton.addEventListener('click', () => {
   downloadJson('network.json', serializeNetwork(editorState.toNetwork()));
@@ -146,6 +165,9 @@ function exitEditorMode() {
   network = editorState.toNetwork();
   simulation = new Simulation({ network, config });
 
+  playback.isPlaying = true;
+  playback.updatePlayPauseLabel();
+
   modeEditorButton.classList.remove('active');
   modeSimulationButton.classList.add('active');
   editorToolbarEl.classList.add('hidden');
@@ -191,6 +213,7 @@ function render() {
 
   if (editorMode) {
     drawSelectionHighlight(ctx, camera, displayNetwork, editorState.selection);
+    drawRouteHighlight(ctx, camera, displayNetwork, editorInteraction.routeLaneIds);
   } else if (simulation) {
     drawSignalStates(ctx, camera, network, simulation.signalControllers);
     drawVehicles(ctx, camera, network, simulation.vehicles.values());

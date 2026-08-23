@@ -7,14 +7,16 @@ const DRAG_THRESHOLD_PX = 3;
  * パン操作(main.js)と共存する。
  */
 export class EditorInteraction {
-  constructor({ canvas, camera, state, onChange }) {
+  constructor({ canvas, camera, state, onChange, onRouteChange }) {
     this.canvas = canvas;
     this.camera = camera;
     this.state = state;
     this.onChange = onChange;
+    this.onRouteChange = onRouteChange;
 
-    this.tool = 'select'; // 'select' | 'add-node' | 'add-edge' | 'delete'
+    this.tool = 'select'; // 'select' | 'add-node' | 'add-edge' | 'delete' | 'select-route'
     this.pendingEdgeStartNodeId = null;
+    this.routeLaneIds = [];
     this.active = false;
 
     this.dragging = null; // { type: 'node', id } | { type: 'pan' }
@@ -37,6 +39,12 @@ export class EditorInteraction {
     this.tool = tool;
     this.pendingEdgeStartNodeId = null;
     this.state.selection = null;
+    this.onChange?.();
+  }
+
+  clearRoute() {
+    this.routeLaneIds = [];
+    this.onRouteChange?.(this.routeLaneIds);
     this.onChange?.();
   }
 
@@ -118,6 +126,17 @@ export class EditorInteraction {
         this.pendingEdgeStartNodeId = null;
         this.state.selection = { type: 'edge', id: edge.id };
       }
+      this.onChange?.();
+      return;
+    }
+
+    if (this.tool === 'select-route') {
+      const edge = this.state.findEdgeNear(world.x, world.y, edgeRadius);
+      if (!edge) return;
+      const lane = this.state.lanes.find((l) => l.edgeId === edge.id && l.index === 0);
+      if (!lane) return;
+      this.routeLaneIds.push(lane.id);
+      this.onRouteChange?.(this.routeLaneIds);
       this.onChange?.();
       return;
     }
