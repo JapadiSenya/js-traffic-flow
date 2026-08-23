@@ -1,15 +1,24 @@
-import { Camera, drawNetwork } from './renderer/index.js';
-import { deserializeNetwork } from './io/index.js';
+import { Camera, drawNetwork, drawVehicles, drawSignalStates } from './renderer/index.js';
+import { deserializeNetwork, deserializeConfig } from './io/index.js';
+import { Simulation } from './engine/index.js';
+
+const SIMULATION_DT = 0.1; // シミュレーションの固定タイムステップ[s]
+const MAX_STEP_PER_FRAME = 0.5; // タブが非アクティブ後の巨大な経過時間を打ち切る上限[s]
 
 const canvas = document.getElementById('simulation-canvas');
 const ctx = canvas.getContext('2d');
 const camera = new Camera({ x: 0, y: 0, scale: 3 });
 
 let network = { nodes: [], edges: [], lanes: [], signals: [] };
+let simulation = null;
 
 function render() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawNetwork(ctx, camera, network);
+  if (simulation) {
+    drawSignalStates(ctx, camera, network, simulation.signalControllers);
+    drawVehicles(ctx, camera, network, simulation.vehicles.values());
+  }
 }
 
 function resizeCanvas() {
@@ -52,11 +61,38 @@ window.addEventListener('pointermove', (e) => {
   render();
 });
 
+let lastFrameTimeMs = null;
+
+function tick(timestampMs) {
+  if (lastFrameTimeMs == null) lastFrameTimeMs = timestampMs;
+  let remaining = Math.min((timestampMs - lastFrameTimeMs) / 1000, MAX_STEP_PER_FRAME);
+  lastFrameTimeMs = timestampMs;
+
+  if (simulation) {
+    while (remaining > 0) {
+      const dt = Math.min(SIMULATION_DT, remaining);
+      simulation.step(dt);
+      remaining -= dt;
+    }
+  }
+
+  render();
+  requestAnimationFrame(tick);
+}
+
 async function init() {
-  const res = await fetch('data/samples/intersection.network.json');
-  const json = await res.json();
-  network = deserializeNetwork(json);
+  const [networkRes, configRes] = await Promise.all([
+    fetch('data/samples/intersection.network.json'),
+    fetch('data/samples/intersection.config.json'),
+  ]);
+  const [networkJson, configJson] = await Promise.all([networkRes.json(), configRes.json()]);
+
+  network = deserializeNetwork(networkJson);
+  const config = deserializeConfig(configJson);
+  simulation = new Simulation({ network, config });
+
   resizeCanvas();
+  requestAnimationFrame(tick);
 }
 
 init();

@@ -65,3 +65,25 @@ export function polylineLength(points) {
   }
   return length;
 }
+
+/**
+ * 点列(ポリライン近似)上で、始点からの弧長distanceの位置にある座標を返す。
+ * distanceが点列の全長を超える場合は終点を返す。
+ */
+export function pointAtDistance(points, distance) {
+  if (distance <= 0) return points[0];
+
+  let accumulated = 0;
+  for (let i = 1; i < points.length; i++) {
+    const segLength = Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+    if (accumulated + segLength >= distance) {
+      const t = segLength === 0 ? 0 : (distance - accumulated) / segLength;
+      return {
+        x: points[i - 1].x + (points[i].x - points[i - 1].x) * t,
+        y: points[i - 1].y + (points[i].y - points[i - 1].y) * t,
+      };
+    }
+    accumulated += segLength;
+  }
+  return points[points.length - 1];
+}
