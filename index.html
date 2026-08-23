@@ -8,6 +8,12 @@
 </head>
 <body>
 <canvas id="simulation-canvas"></canvas>
+
+<div id="mode-tabs">
+  <button id="mode-simulation-btn" type="button" class="active">シミュレーション</button>
+  <button id="mode-editor-btn" type="button">エディタ</button>
+</div>
+
 <div id="playback-controls">
   <button id="play-pause-btn" type="button">一時停止</button>
   <label>
@@ -21,6 +27,19 @@
   </label>
   <button id="diagram-btn" type="button">時空間図を表示</button>
 </div>
+
+<div id="editor-toolbar" class="hidden">
+  <button id="tool-select-btn" type="button" class="active">選択/移動</button>
+  <button id="tool-add-node-btn" type="button">ノード追加</button>
+  <button id="tool-add-edge-btn" type="button">エッジ接続</button>
+  <button id="tool-delete-btn" type="button">削除</button>
+  <button id="network-export-btn" type="button">道路網を書き出し</button>
+  <button id="network-import-btn" type="button">道路網を読み込み</button>
+  <input id="network-import-input" type="file" accept="application/json" class="hidden">
+</div>
+
+<div id="property-panel" class="hidden"></div>
+
 <div id="diagram-overlay" class="hidden">
   <canvas id="diagram-canvas"></canvas>
   <button id="diagram-close-btn" type="button">閉じる</button>
