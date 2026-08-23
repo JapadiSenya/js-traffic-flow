@@ -24,7 +24,9 @@ body {
 #editor-toolbar {
   position: fixed;
   left: 12px;
+  max-width: calc(100% - 260px);
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
   padding: 8px 12px;
