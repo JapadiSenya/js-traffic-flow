@@ -1,0 +1,27 @@
+{
+  "initialVehicles": [
+    { "laneId": "lane-w2c", "s": 20, "speed": 8 },
+    { "laneId": "lane-w2c", "s": 50, "speed": 8 },
+    { "laneId": "lane-n2c", "s": 30, "speed": 8 }
+  ],
+  "inflows": [
+    { "edgeId": "edge-w2c", "flowRate": 400 },
+    { "edgeId": "edge-e2c", "flowRate": 400 },
+    { "edgeId": "edge-n2c", "flowRate": 300 },
+    { "edgeId": "edge-s2c", "flowRate": 300 }
+  ],
+  "idmDefaults": {
+    "desiredSpeed": 13.9,
+    "safeTimeHeadway": 1.5,
+    "maxAcceleration": 1.5,
+    "comfortableDeceleration": 2.0,
+    "minGap": 2.0
+  },
+  "mobilDefaults": {
+    "politeness": 0.3,
+    "changeThreshold": 0.2,
+    "safeBraking": 4.0
+  },
+  "reactionIntervalRange": [0.2, 0.4],
+  "diagramRoute": ["lane-w2c", "lane-c2e"]
+}
