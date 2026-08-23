@@ -1,0 +1,93 @@
+{
+  "nodes": [
+    { "id": "node-center", "x": 0, "y": 0, "elevation": 0, "signalId": "signal-center" },
+    { "id": "node-west", "x": -100, "y": 0, "elevation": 0, "signalId": null },
+    { "id": "node-east", "x": 100, "y": 0, "elevation": 0, "signalId": null },
+    { "id": "node-north", "x": 0, "y": -100, "elevation": 0, "signalId": null },
+    { "id": "node-south", "x": 0, "y": 100, "elevation": 0, "signalId": null }
+  ],
+  "edges": [
+    { "id": "edge-w2c", "startNodeId": "node-west", "endNodeId": "node-center", "controlPoints": [], "laneCount": 1, "grade": 0 },
+    { "id": "edge-c2w", "startNodeId": "node-center", "endNodeId": "node-west", "controlPoints": [], "laneCount": 1, "grade": 0 },
+    { "id": "edge-e2c", "startNodeId": "node-east", "endNodeId": "node-center", "controlPoints": [], "laneCount": 1, "grade": 0 },
+    { "id": "edge-c2e", "startNodeId": "node-center", "endNodeId": "node-east", "controlPoints": [], "laneCount": 1, "grade": 0 },
+    { "id": "edge-n2c", "startNodeId": "node-north", "endNodeId": "node-center", "controlPoints": [], "laneCount": 1, "grade": 0 },
+    { "id": "edge-c2n", "startNodeId": "node-center", "endNodeId": "node-north", "controlPoints": [], "laneCount": 1, "grade": 0 },
+    { "id": "edge-s2c", "startNodeId": "node-south", "endNodeId": "node-center", "controlPoints": [], "laneCount": 1, "grade": 0 },
+    { "id": "edge-c2s", "startNodeId": "node-center", "endNodeId": "node-south", "controlPoints": [], "laneCount": 1, "grade": 0 }
+  ],
+  "lanes": [
+    {
+      "id": "lane-w2c", "edgeId": "edge-w2c", "index": 0,
+      "laneChange": { "left": false, "right": false },
+      "connections": [
+        { "toLaneId": "lane-c2e", "movement": "through" },
+        { "toLaneId": "lane-c2n", "movement": "left" },
+        { "toLaneId": "lane-c2s", "movement": "right" }
+      ]
+    },
+    {
+      "id": "lane-e2c", "edgeId": "edge-e2c", "index": 0,
+      "laneChange": { "left": false, "right": false },
+      "connections": [
+        { "toLaneId": "lane-c2w", "movement": "through" },
+        { "toLaneId": "lane-c2s", "movement": "left" },
+        { "toLaneId": "lane-c2n", "movement": "right" }
+      ]
+    },
+    {
+      "id": "lane-n2c", "edgeId": "edge-n2c", "index": 0,
+      "laneChange": { "left": false, "right": false },
+      "connections": [
+        { "toLaneId": "lane-c2s", "movement": "through" },
+        { "toLaneId": "lane-c2e", "movement": "left" },
+        { "toLaneId": "lane-c2w", "movement": "right" }
+      ]
+    },
+    {
+      "id": "lane-s2c", "edgeId": "edge-s2c", "index": 0,
+      "laneChange": { "left": false, "right": false },
+      "connections": [
+        { "toLaneId": "lane-c2n", "movement": "through" },
+        { "toLaneId": "lane-c2w", "movement": "left" },
+        { "toLaneId": "lane-c2e", "movement": "right" }
+      ]
+    },
+    { "id": "lane-c2e", "edgeId": "edge-c2e", "index": 0, "laneChange": { "left": false, "right": false }, "connections": [] },
+    { "id": "lane-c2w", "edgeId": "edge-c2w", "index": 0, "laneChange": { "left": false, "right": false }, "connections": [] },
+    { "id": "lane-c2n", "edgeId": "edge-c2n", "index": 0, "laneChange": { "left": false, "right": false }, "connections": [] },
+    { "id": "lane-c2s", "edgeId": "edge-c2s", "index": 0, "laneChange": { "left": false, "right": false }, "connections": [] }
+  ],
+  "signals": [
+    {
+      "id": "signal-center",
+      "nodeId": "node-center",
+      "phases": [
+        {
+          "id": "phase-ew",
+          "duration": 30,
+          "allowedMovements": [
+            { "laneId": "lane-w2c", "movement": "through" },
+            { "laneId": "lane-w2c", "movement": "left" },
+            { "laneId": "lane-w2c", "movement": "right" },
+            { "laneId": "lane-e2c", "movement": "through" },
+            { "laneId": "lane-e2c", "movement": "left" },
+            { "laneId": "lane-e2c", "movement": "right" }
+          ]
+        },
+        {
+          "id": "phase-ns",
+          "duration": 30,
+          "allowedMovements": [
+            { "laneId": "lane-n2c", "movement": "through" },
+            { "laneId": "lane-n2c", "movement": "left" },
+            { "laneId": "lane-n2c", "movement": "right" },
+            { "laneId": "lane-s2c", "movement": "through" },
+            { "laneId": "lane-s2c", "movement": "left" },
+            { "laneId": "lane-s2c", "movement": "right" }
+          ]
+        }
+      ]
+    }
+  ]
+}
