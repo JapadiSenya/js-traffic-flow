@@ -1,0 +1,196 @@
+const HIT_RADIUS_PX = 8;
+const DRAG_THRESHOLD_PX = 3;
+
+/**
+ * エディタモードでのCanvas操作(ノード配置・エッジ接続・削除・選択・ドラッグ移動)を扱う。
+ * setActive(false)の間は一切のイベントを処理せず、シミュレーションモード側の
+ * パン操作(main.js)と共存する。
+ */
+export class EditorInteraction {
+  constructor({ canvas, camera, state, onChange, onRouteChange }) {
+    this.canvas = canvas;
+    this.camera = camera;
+    this.state = state;
+    this.onChange = onChange;
+    this.onRouteChange = onRouteChange;
+
+    this.tool = 'select'; // 'select' | 'add-node' | 'add-edge' | 'delete' | 'select-route'
+    this.pendingEdgeStartNodeId = null;
+    this.routeLaneIds = [];
+    this.active = false;
+
+    this.dragging = null; // { type: 'node', id } | { type: 'pan' }
+    this.dragStartScreen = null;
+    this.dragMoved = false;
+    this.lastScreen = null;
+
+    canvas.addEventListener('pointerdown', (e) => this.handlePointerDown(e));
+    window.addEventListener('pointermove', (e) => this.handlePointerMove(e));
+    window.addEventListener('pointerup', (e) => this.handlePointerUp(e));
+  }
+
+  setActive(active) {
+    this.active = active;
+    this.dragging = null;
+    this.pendingEdgeStartNodeId = null;
+  }
+
+  setTool(tool) {
+    this.tool = tool;
+    this.pendingEdgeStartNodeId = null;
+    this.state.selection = null;
+    this.onChange?.();
+  }
+
+  clearRoute() {
+    this.routeLaneIds = [];
+    this.onRouteChange?.(this.routeLaneIds);
+    this.onChange?.();
+  }
+
+  toWorld(clientX, clientY) {
+    const rect = this.canvas.getBoundingClientRect();
+    return this.camera.screenToWorld(clientX - rect.left, clientY - rect.top, this.canvas.width, this.canvas.height);
+  }
+
+  hitRadiusInWorld() {
+    return HIT_RADIUS_PX / this.camera.scale;
+  }
+
+  handlePointerDown(e) {
+    if (!this.active) return;
+
+    this.dragStartScreen = { x: e.clientX, y: e.clientY };
+    this.lastScreen = { x: e.clientX, y: e.clientY };
+    this.dragMoved = false;
+
+    if (this.tool === 'select') {
+      const world = this.toWorld(e.clientX, e.clientY);
+      const controlPointHit = this.findSelectedControlPointNear(world.x, world.y);
+      if (controlPointHit) {
+        this.dragging = { type: 'control-point', edgeId: controlPointHit.edgeId, index: controlPointHit.index };
+        return;
+      }
+      const node = this.state.findNodeNear(world.x, world.y, this.hitRadiusInWorld());
+      this.dragging = node ? { type: 'node', id: node.id } : { type: 'pan' };
+    } else {
+      this.dragging = { type: 'pan' };
+    }
+  }
+
+  findSelectedControlPointNear(x, y) {
+    if (this.state.selection?.type !== 'edge') return null;
+    const edge = this.state.edges.find((e) => e.id === this.state.selection.id);
+    if (!edge || edge.controlPoints.length < 2) return null;
+
+    const radius = this.hitRadiusInWorld();
+    for (let i = 0; i < edge.controlPoints.length; i++) {
+      const cp = edge.controlPoints[i];
+      if (Math.hypot(cp.x - x, cp.y - y) <= radius) {
+        return { edgeId: edge.id, index: i };
+      }
+    }
+    return null;
+  }
+
+  handlePointerMove(e) {
+    if (!this.active || !this.dragging) return;
+
+    const dx = e.clientX - this.lastScreen.x;
+    const dy = e.clientY - this.lastScreen.y;
+    if (Math.hypot(e.clientX - this.dragStartScreen.x, e.clientY - this.dragStartScreen.y) > DRAG_THRESHOLD_PX) {
+      this.dragMoved = true;
+    }
+
+    if (this.dragging.type === 'node') {
+      const world = this.toWorld(e.clientX, e.clientY);
+      this.state.moveNode(this.dragging.id, world.x, world.y);
+      this.onChange?.();
+    } else if (this.dragging.type === 'control-point') {
+      const world = this.toWorld(e.clientX, e.clientY);
+      this.state.moveControlPoint(this.dragging.edgeId, this.dragging.index, world.x, world.y);
+      this.onChange?.();
+    } else if (this.dragging.type === 'pan') {
+      this.camera.panByScreenDelta(dx, dy);
+      this.onChange?.();
+    }
+
+    this.lastScreen = { x: e.clientX, y: e.clientY };
+  }
+
+  handlePointerUp(e) {
+    if (!this.active || !this.dragging) return;
+
+    if (!this.dragMoved) {
+      this.handleClick(e.clientX, e.clientY);
+    }
+    this.dragging = null;
+  }
+
+  handleClick(clientX, clientY) {
+    const world = this.toWorld(clientX, clientY);
+    const nodeRadius = this.hitRadiusInWorld();
+    const edgeRadius = this.hitRadiusInWorld();
+
+    if (this.tool === 'add-node') {
+      const node = this.state.addNode(world.x, world.y);
+      this.state.selection = { type: 'node', id: node.id };
+      this.onChange?.();
+      return;
+    }
+
+    if (this.tool === 'add-edge') {
+      const node = this.state.findNodeNear(world.x, world.y, nodeRadius);
+      if (!node) return;
+      if (!this.pendingEdgeStartNodeId) {
+        this.pendingEdgeStartNodeId = node.id;
+        this.state.selection = { type: 'node', id: node.id };
+      } else if (node.id !== this.pendingEdgeStartNodeId) {
+        const edge = this.state.addEdge(this.pendingEdgeStartNodeId, node.id, 1);
+        this.pendingEdgeStartNodeId = null;
+        this.state.selection = { type: 'edge', id: edge.id };
+      }
+      this.onChange?.();
+      return;
+    }
+
+    if (this.tool === 'select-route') {
+      const edge = this.state.findEdgeNear(world.x, world.y, edgeRadius);
+      if (!edge) return;
+      const lane = this.state.lanes.find((l) => l.edgeId === edge.id && l.index === 0);
+      if (!lane) return;
+      this.routeLaneIds.push(lane.id);
+      this.onRouteChange?.(this.routeLaneIds);
+      this.onChange?.();
+      return;
+    }
+
+    if (this.tool === 'delete') {
+      const node = this.state.findNodeNear(world.x, world.y, nodeRadius);
+      if (node) {
+        this.state.removeNode(node.id);
+        this.state.selection = null;
+        this.onChange?.();
+        return;
+      }
+      const edge = this.state.findEdgeNear(world.x, world.y, edgeRadius);
+      if (edge) {
+        this.state.removeEdge(edge.id);
+        this.state.selection = null;
+        this.onChange?.();
+      }
+      return;
+    }
+
+    // select
+    const node = this.state.findNodeNear(world.x, world.y, nodeRadius);
+    if (node) {
+      this.state.selection = { type: 'node', id: node.id };
+      this.onChange?.();
+      return;
+    }
+    const edge = this.state.findEdgeNear(world.x, world.y, edgeRadius);
+    this.state.selection = edge ? { type: 'edge', id: edge.id } : null;
+    this.onChange?.();
+  }
+}
