@@ -39,6 +39,16 @@ export function drawSelectionHighlight(ctx, camera, network, selection) {
       ctx.strokeStyle = HIGHLIGHT_COLOR;
       ctx.lineWidth = 3;
       ctx.stroke();
+
+      if (edge.controlPoints.length >= 2) {
+        ctx.fillStyle = HIGHLIGHT_COLOR;
+        for (const cp of edge.controlPoints) {
+          const s = camera.worldToScreen(cp.x, cp.y, width, height);
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, 5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
     }
   }
 

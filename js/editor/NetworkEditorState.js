@@ -194,6 +194,36 @@ export class NetworkEditorState {
   }
 
   /**
+   * エッジを3次ベジェ曲線化する(始点・終点を3等分する2点を制御点の初期値とする)。
+   * curved=falseの場合は制御点を除去し直線に戻す。
+   */
+  setEdgeCurved(edgeId, curved) {
+    const edge = this.edges.find((e) => e.id === edgeId);
+    if (!edge) return;
+
+    if (!curved) {
+      edge.controlPoints = [];
+      return;
+    }
+    if (edge.controlPoints.length >= 2) return;
+
+    const start = this.nodes.find((n) => n.id === edge.startNodeId);
+    const end = this.nodes.find((n) => n.id === edge.endNodeId);
+    if (!start || !end) return;
+
+    edge.controlPoints = [
+      { x: start.x + (end.x - start.x) / 3, y: start.y + (end.y - start.y) / 3 },
+      { x: start.x + ((end.x - start.x) * 2) / 3, y: start.y + ((end.y - start.y) * 2) / 3 },
+    ];
+  }
+
+  moveControlPoint(edgeId, pointIndex, x, y) {
+    const edge = this.edges.find((e) => e.id === edgeId);
+    if (!edge || !edge.controlPoints[pointIndex]) return;
+    edge.controlPoints[pointIndex] = { x, y };
+  }
+
+  /**
    * ノードの接続関係(流入車線→流出車線のmovement)と信号現示を再計算する。
    * ノード配置・エッジ接続/削除・車線数変更・ノード移動のたびに呼び出す。
    */

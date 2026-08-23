@@ -66,11 +66,31 @@ export class EditorInteraction {
 
     if (this.tool === 'select') {
       const world = this.toWorld(e.clientX, e.clientY);
+      const controlPointHit = this.findSelectedControlPointNear(world.x, world.y);
+      if (controlPointHit) {
+        this.dragging = { type: 'control-point', edgeId: controlPointHit.edgeId, index: controlPointHit.index };
+        return;
+      }
       const node = this.state.findNodeNear(world.x, world.y, this.hitRadiusInWorld());
       this.dragging = node ? { type: 'node', id: node.id } : { type: 'pan' };
     } else {
       this.dragging = { type: 'pan' };
     }
+  }
+
+  findSelectedControlPointNear(x, y) {
+    if (this.state.selection?.type !== 'edge') return null;
+    const edge = this.state.edges.find((e) => e.id === this.state.selection.id);
+    if (!edge || edge.controlPoints.length < 2) return null;
+
+    const radius = this.hitRadiusInWorld();
+    for (let i = 0; i < edge.controlPoints.length; i++) {
+      const cp = edge.controlPoints[i];
+      if (Math.hypot(cp.x - x, cp.y - y) <= radius) {
+        return { edgeId: edge.id, index: i };
+      }
+    }
+    return null;
   }
 
   handlePointerMove(e) {
@@ -85,6 +105,10 @@ export class EditorInteraction {
     if (this.dragging.type === 'node') {
       const world = this.toWorld(e.clientX, e.clientY);
       this.state.moveNode(this.dragging.id, world.x, world.y);
+      this.onChange?.();
+    } else if (this.dragging.type === 'control-point') {
+      const world = this.toWorld(e.clientX, e.clientY);
+      this.state.moveControlPoint(this.dragging.edgeId, this.dragging.index, world.x, world.y);
       this.onChange?.();
     } else if (this.dragging.type === 'pan') {
       this.camera.panByScreenDelta(dx, dy);

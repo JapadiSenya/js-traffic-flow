@@ -157,11 +157,17 @@ export class PropertyPanel {
     const edge = this.state.edges.find((e) => e.id === edgeId);
     if (!edge) return;
 
+    const isCurved = edge.controlPoints.length >= 2;
+
     this.container.innerHTML = `
       <h3>エッジ</h3>
       <p>ID: ${edge.id}</p>
       <label>車線数<input id="prop-lane-count" type="number" min="1" max="4" value="${edge.laneCount}"></label>
       <label>勾配[%]<input id="prop-grade" type="number" step="0.5" value="${edge.grade}"></label>
+      <p>${isCurved ? '曲線: 黄色いハンドルをドラッグして制御点を編集できます' : '直線'}</p>
+      <div class="signal-actions">
+        <button id="prop-curve-toggle-btn" type="button">${isCurved ? '直線に戻す' : 'カーブ化'}</button>
+      </div>
     `;
 
     this.container.querySelector('#prop-lane-count').addEventListener('change', (e) => {
@@ -173,6 +179,12 @@ export class PropertyPanel {
 
     this.container.querySelector('#prop-grade').addEventListener('change', (e) => {
       this.state.setGrade(edge.id, Number(e.target.value) || 0);
+      this.onChange?.();
+    });
+
+    this.container.querySelector('#prop-curve-toggle-btn').addEventListener('click', () => {
+      this.state.setEdgeCurved(edge.id, !isCurved);
+      this.render();
       this.onChange?.();
     });
   }
