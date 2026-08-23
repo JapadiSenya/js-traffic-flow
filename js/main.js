@@ -3,7 +3,7 @@ import { deserializeNetwork, serializeNetwork, deserializeConfig, downloadJson, 
 import { Simulation } from './engine/index.js';
 import { PlaybackControls } from './ui/index.js';
 import { TrajectoryRecorder, drawDiagram } from './diagram/index.js';
-import { NetworkEditorState, EditorInteraction, PropertyPanel, drawSelectionHighlight } from './editor/index.js';
+import { NetworkEditorState, EditorInteraction, PropertyPanel, ConfigPanel, drawSelectionHighlight } from './editor/index.js';
 
 const SIMULATION_DT = 0.1; // シミュレーションの固定タイムステップ[s]
 const MAX_STEP_PER_FRAME = 0.5; // タブが非アクティブ後の巨大な経過時間を打ち切る上限[s]
@@ -40,6 +40,10 @@ const networkExportButton = document.getElementById('network-export-btn');
 const networkImportButton = document.getElementById('network-import-btn');
 const networkImportInput = document.getElementById('network-import-input');
 
+const configButton = document.getElementById('config-btn');
+const configOverlay = document.getElementById('config-overlay');
+const configPanelEl = document.getElementById('config-panel');
+
 let network = { nodes: [], edges: [], lanes: [], signals: [] };
 let config = null;
 let simulation = null;
@@ -65,6 +69,21 @@ const editorInteraction = new EditorInteraction({
     render();
   },
 });
+
+const configPanel = new ConfigPanel({
+  overlay: configOverlay,
+  panelContainer: configPanelEl,
+  getNetwork: () => (editorMode ? editorState.toNetwork() : network),
+  getConfig: () => config,
+  onApply: (newConfig) => {
+    config = newConfig;
+    if (!editorMode && simulation) {
+      simulation = new Simulation({ network, config });
+    }
+  },
+});
+
+configButton.addEventListener('click', () => configPanel.open());
 
 function setTool(tool) {
   editorInteraction.setTool(tool);
