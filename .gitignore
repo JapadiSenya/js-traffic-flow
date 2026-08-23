@@ -1,0 +1,14 @@
+# Claude Code (プロジェクト作業用の指示ファイル。リポジトリには含めない)
+CLAUDE.md
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
