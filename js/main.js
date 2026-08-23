@@ -1,6 +1,7 @@
 import { Camera, drawNetwork, drawVehicles, drawSignalStates } from './renderer/index.js';
 import { deserializeNetwork, deserializeConfig } from './io/index.js';
 import { Simulation } from './engine/index.js';
+import { PlaybackControls } from './ui/index.js';
 
 const SIMULATION_DT = 0.1; // シミュレーションの固定タイムステップ[s]
 const MAX_STEP_PER_FRAME = 0.5; // タブが非アクティブ後の巨大な経過時間を打ち切る上限[s]
@@ -8,6 +9,11 @@ const MAX_STEP_PER_FRAME = 0.5; // タブが非アクティブ後の巨大な経
 const canvas = document.getElementById('simulation-canvas');
 const ctx = canvas.getContext('2d');
 const camera = new Camera({ x: 0, y: 0, scale: 3 });
+
+const playback = new PlaybackControls({
+  playPauseButton: document.getElementById('play-pause-btn'),
+  speedSelect: document.getElementById('speed-select'),
+});
 
 let network = { nodes: [], edges: [], lanes: [], signals: [] };
 let simulation = null;
@@ -68,7 +74,8 @@ function tick(timestampMs) {
   let remaining = Math.min((timestampMs - lastFrameTimeMs) / 1000, MAX_STEP_PER_FRAME);
   lastFrameTimeMs = timestampMs;
 
-  if (simulation) {
+  if (simulation && playback.isPlaying) {
+    remaining *= playback.speed;
     while (remaining > 0) {
       const dt = Math.min(SIMULATION_DT, remaining);
       simulation.step(dt);
