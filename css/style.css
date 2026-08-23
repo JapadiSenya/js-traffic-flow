@@ -264,3 +264,29 @@ body {
   cursor: pointer;
 }
 
+.vehicle-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0;
+}
+
+.vehicle-row select {
+  flex: 1;
+  min-width: 0;
+}
+
+.vehicle-row input {
+  width: 64px;
+}
+
+.vehicle-row button {
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+#cfg-vehicle-add-btn {
+  cursor: pointer;
+  margin-top: 6px;
+}
+

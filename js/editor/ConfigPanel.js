@@ -1,7 +1,7 @@
 import { serializeConfig, deserializeConfig, downloadJson, readJsonFile } from '../io/index.js';
 
 /**
- * IDM/MOBILデフォルトパラメータと流入設定を編集するオーバーレイパネル。
+ * IDM/MOBILデフォルトパラメータ・流入設定・車両初期配置を編集するオーバーレイパネル。
  * 設定ファイル(JSON)のexport/importとも連動する。
  */
 export class ConfigPanel {
@@ -11,9 +11,11 @@ export class ConfigPanel {
     this.getNetwork = getNetwork;
     this.getConfig = getConfig;
     this.onApply = onApply;
+    this.pendingInitialVehicles = [];
   }
 
   open() {
+    this.pendingInitialVehicles = this.getConfig().initialVehicles.map((v) => ({ ...v }));
     this.render();
     this.overlay.classList.remove('hidden');
   }
@@ -32,6 +34,24 @@ export class ConfigPanel {
         const value = existing ? existing.flowRate : 0;
         return `<label>${edge.id}<input data-edge-id="${edge.id}" class="cfg-inflow" type="number" min="0" step="10" value="${value}"></label>`;
       })
+      .join('');
+
+    const laneOptionsFor = (selectedLaneId) =>
+      network.lanes
+        .map((l) => `<option value="${l.id}" ${l.id === selectedLaneId ? 'selected' : ''}>${l.id}</option>`)
+        .join('');
+
+    const vehicleRows = this.pendingInitialVehicles
+      .map(
+        (v, i) => `
+          <div class="vehicle-row" data-index="${i}">
+            <select class="veh-lane">${laneOptionsFor(v.laneId)}</select>
+            <input class="veh-s" type="number" step="1" value="${v.s}" title="位置s[m]">
+            <input class="veh-speed" type="number" step="0.5" value="${v.speed}" title="速度[m/s]">
+            <button class="veh-remove-btn" data-index="${i}" type="button">&times;</button>
+          </div>
+        `
+      )
       .join('');
 
     this.container.innerHTML = `
@@ -54,6 +74,11 @@ export class ConfigPanel {
         <h3>流入設定[台/時]</h3>
         ${inflowRows || '<p>エッジがありません</p>'}
       </section>
+      <section>
+        <h3>初期配置車両(車線 / 位置s[m] / 速度[m/s])</h3>
+        <div id="vehicle-rows">${vehicleRows || '<p>車両がありません</p>'}</div>
+        <button id="cfg-vehicle-add-btn" type="button">車両を追加</button>
+      </section>
       <div class="config-actions">
         <button id="config-export-btn" type="button">設定を書き出し</button>
         <button id="config-import-btn" type="button">設定を読み込み</button>
@@ -70,6 +95,30 @@ export class ConfigPanel {
       this.container.querySelector('#config-import-input').click();
     });
     this.container.querySelector('#config-import-input').addEventListener('change', (e) => this.importConfig(e));
+
+    this.container.querySelector('#cfg-vehicle-add-btn').addEventListener('click', () => {
+      this.syncPendingInitialVehiclesFromDom();
+      const defaultLaneId = network.lanes[0]?.id ?? '';
+      this.pendingInitialVehicles.push({ laneId: defaultLaneId, s: 0, speed: 0 });
+      this.render();
+    });
+
+    this.container.querySelectorAll('.veh-remove-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        this.syncPendingInitialVehiclesFromDom();
+        const index = Number(e.currentTarget.dataset.index);
+        this.pendingInitialVehicles.splice(index, 1);
+        this.render();
+      });
+    });
+  }
+
+  syncPendingInitialVehiclesFromDom() {
+    this.pendingInitialVehicles = Array.from(this.container.querySelectorAll('.vehicle-row')).map((row) => ({
+      laneId: row.querySelector('.veh-lane').value,
+      s: Number(row.querySelector('.veh-s').value) || 0,
+      speed: Number(row.querySelector('.veh-speed').value) || 0,
+    }));
   }
 
   collectFormValues() {
@@ -90,9 +139,14 @@ export class ConfigPanel {
       edgeId: input.dataset.edgeId,
       flowRate: Number(input.value) || 0,
     }));
+    const initialVehicles = Array.from(this.container.querySelectorAll('.vehicle-row')).map((row) => ({
+      laneId: row.querySelector('.veh-lane').value,
+      s: Number(row.querySelector('.veh-s').value) || 0,
+      speed: Number(row.querySelector('.veh-speed').value) || 0,
+    }));
 
     const current = this.getConfig();
-    return { ...current, idmDefaults, mobilDefaults, inflows };
+    return { ...current, idmDefaults, mobilDefaults, inflows, initialVehicles };
   }
 
   applyAndClose() {
@@ -109,6 +163,7 @@ export class ConfigPanel {
     if (!file) return;
     const json = await readJsonFile(file);
     const imported = deserializeConfig(json);
+    this.pendingInitialVehicles = imported.initialVehicles.map((v) => ({ ...v }));
     this.onApply(imported);
     e.target.value = '';
     this.render();
