@@ -1,4 +1,4 @@
-import { getLaneOffset, laneCenterlinePoints } from './geometry.js';
+import { getLaneOffset, laneCenterlinePoints } from '../geometry/index.js';
 
 /**
  * 道路網(ノード・エッジ・車線・信号)をCanvasに俯瞰描画する。

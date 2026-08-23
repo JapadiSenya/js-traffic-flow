@@ -1,4 +1,9 @@
 /**
+ * 道路網の幾何計算(ベジェ曲線・車線オフセット・弧長)を提供する共通ユーティリティ。
+ * renderer(描画)・engine(車線長の判定)・diagram(累積距離の算出)から共通で利用する。
+ */
+
+/**
  * 3次ベジェ曲線上の点を計算する。
  */
 export function cubicBezierPoint(p0, p1, p2, p3, t) {
@@ -48,4 +53,15 @@ export function laneCenterlinePoints(startNode, endNode, controlPoints, offset, 
     points.push(cubicBezierPoint(p0, p1, p2, p3, i / segments));
   }
   return points;
+}
+
+/**
+ * 点列(ポリライン近似)の弧長を返す。
+ */
+export function polylineLength(points) {
+  let length = 0;
+  for (let i = 1; i < points.length; i++) {
+    length += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+  }
+  return length;
 }
