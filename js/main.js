@@ -1,8 +1,9 @@
 import { Camera, drawNetwork, drawVehicles, drawSignalStates } from './renderer/index.js';
-import { deserializeNetwork, deserializeConfig } from './io/index.js';
+import { deserializeNetwork, serializeNetwork, deserializeConfig, downloadJson, readJsonFile } from './io/index.js';
 import { Simulation } from './engine/index.js';
 import { PlaybackControls } from './ui/index.js';
 import { TrajectoryRecorder, drawDiagram } from './diagram/index.js';
+import { NetworkEditorState, EditorInteraction, PropertyPanel, drawSelectionHighlight } from './editor/index.js';
 
 const SIMULATION_DT = 0.1; // シミュレーションの固定タイムステップ[s]
 const MAX_STEP_PER_FRAME = 0.5; // タブが非アクティブ後の巨大な経過時間を打ち切る上限[s]
@@ -23,11 +24,122 @@ const diagramCanvas = document.getElementById('diagram-canvas');
 const diagramCtx = diagramCanvas.getContext('2d');
 const diagramCloseButton = document.getElementById('diagram-close-btn');
 
+const modeSimulationButton = document.getElementById('mode-simulation-btn');
+const modeEditorButton = document.getElementById('mode-editor-btn');
+const playbackControlsEl = document.getElementById('playback-controls');
+const editorToolbarEl = document.getElementById('editor-toolbar');
+const propertyPanelEl = document.getElementById('property-panel');
+
+const toolButtons = {
+  select: document.getElementById('tool-select-btn'),
+  'add-node': document.getElementById('tool-add-node-btn'),
+  'add-edge': document.getElementById('tool-add-edge-btn'),
+  delete: document.getElementById('tool-delete-btn'),
+};
+const networkExportButton = document.getElementById('network-export-btn');
+const networkImportButton = document.getElementById('network-import-btn');
+const networkImportInput = document.getElementById('network-import-input');
+
 let network = { nodes: [], edges: [], lanes: [], signals: [] };
 let config = null;
 let simulation = null;
 let recorder = null;
 let recordStartTime = null;
+let editorMode = false;
+
+let editorState = new NetworkEditorState(network);
+const propertyPanel = new PropertyPanel({
+  container: propertyPanelEl,
+  state: editorState,
+  onChange: () => {
+    propertyPanel.render();
+    render();
+  },
+});
+const editorInteraction = new EditorInteraction({
+  canvas,
+  camera,
+  state: editorState,
+  onChange: () => {
+    propertyPanel.render();
+    render();
+  },
+});
+
+function setTool(tool) {
+  editorInteraction.setTool(tool);
+  for (const [key, btn] of Object.entries(toolButtons)) {
+    btn.classList.toggle('active', key === tool);
+  }
+  propertyPanel.render();
+}
+
+for (const [tool, btn] of Object.entries(toolButtons)) {
+  btn.addEventListener('click', () => setTool(tool));
+}
+
+networkExportButton.addEventListener('click', () => {
+  downloadJson('network.json', serializeNetwork(editorState.toNetwork()));
+});
+
+networkImportButton.addEventListener('click', () => {
+  networkImportInput.click();
+});
+
+networkImportInput.addEventListener('change', async () => {
+  const file = networkImportInput.files[0];
+  if (!file) return;
+  const json = await readJsonFile(file);
+  const imported = deserializeNetwork(json);
+
+  editorState = new NetworkEditorState(imported);
+  editorInteraction.state = editorState;
+  propertyPanel.state = editorState;
+
+  networkImportInput.value = '';
+  propertyPanel.render();
+  render();
+});
+
+function enterEditorMode() {
+  editorMode = true;
+  playback.isPlaying = false;
+  playback.updatePlayPauseLabel();
+
+  editorState = new NetworkEditorState(network);
+  editorInteraction.state = editorState;
+  propertyPanel.state = editorState;
+  editorInteraction.setActive(true);
+
+  modeSimulationButton.classList.remove('active');
+  modeEditorButton.classList.add('active');
+  playbackControlsEl.classList.add('hidden');
+  editorToolbarEl.classList.remove('hidden');
+  setTool('select');
+  render();
+}
+
+function exitEditorMode() {
+  editorMode = false;
+  editorInteraction.setActive(false);
+  propertyPanelEl.classList.add('hidden');
+
+  network = editorState.toNetwork();
+  simulation = new Simulation({ network, config });
+
+  modeEditorButton.classList.remove('active');
+  modeSimulationButton.classList.add('active');
+  editorToolbarEl.classList.add('hidden');
+  playbackControlsEl.classList.remove('hidden');
+  render();
+}
+
+modeSimulationButton.addEventListener('click', () => {
+  if (editorMode) exitEditorMode();
+});
+modeEditorButton.addEventListener('click', () => {
+  if (!editorMode) enterEditorMode();
+});
 
 diagramButton.addEventListener('click', () => {
   if (!simulation || recorder) return;
@@ -55,8 +167,12 @@ function showDiagram() {
 
 function render() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  drawNetwork(ctx, camera, network);
-  if (simulation) {
+  const displayNetwork = editorMode ? editorState.toNetwork() : network;
+  drawNetwork(ctx, camera, displayNetwork);
+
+  if (editorMode) {
+    drawSelectionHighlight(ctx, camera, displayNetwork, editorState.selection);
+  } else if (simulation) {
     drawSignalStates(ctx, camera, network, simulation.signalControllers);
     drawVehicles(ctx, camera, network, simulation.vehicles.values());
   }
@@ -87,6 +203,7 @@ let lastX = 0;
 let lastY = 0;
 
 canvas.addEventListener('pointerdown', (e) => {
+  if (editorMode) return;
   dragging = true;
   lastX = e.clientX;
   lastY = e.clientY;
@@ -95,7 +212,7 @@ window.addEventListener('pointerup', () => {
   dragging = false;
 });
 window.addEventListener('pointermove', (e) => {
-  if (!dragging) return;
+  if (editorMode || !dragging) return;
   camera.panByScreenDelta(e.clientX - lastX, e.clientY - lastY);
   lastX = e.clientX;
   lastY = e.clientY;
@@ -137,6 +254,10 @@ async function init() {
   network = deserializeNetwork(networkJson);
   config = deserializeConfig(configJson);
   simulation = new Simulation({ network, config });
+
+  editorState = new NetworkEditorState(network);
+  editorInteraction.state = editorState;
+  propertyPanel.state = editorState;
 
   resizeCanvas();
   requestAnimationFrame(tick);
